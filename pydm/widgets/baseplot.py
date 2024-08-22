@@ -760,7 +760,7 @@ class BasePlot(PlotWidget, PyDMPrimitiveWidget):
                 ("opacity", self.getPlotItem().ctrl.gridAlphaSlider.value()),
                 ("backgroundColor", self.getBackgroundColor().name()),
                 ("legend", self.getShowLegend()),
-                ("crosshair", self.vertical_crosshair_line),
+                ("crosshair", self.vertical_crosshair_line is not None),
                 ("mouseMode", self.plotItem.getViewBox().state["mouseMode"]),
             ]
         )
