@@ -397,6 +397,10 @@ class FormulaCurveItem(BasePlotCurveItem):
         self._formula = formula
         self._trueFormula = self.createTrueFormula()
 
+    @property
+    def channel(self):
+        return None
+
     def checkFormula(self) -> bool:
         """Make sure that our formula is still valid.
         Namely, all of the input curves need to still exist in the viewer"""
@@ -921,15 +925,6 @@ class PyDMArchiverTimePlot(PyDMTimePlot):
             useArchiveData=useArchiveData,
             liveData=liveData,
         )
-
-    def replaceToArchivePlot(self, address: str, **kwargs) -> ArchivePlotCurveItem:
-        # This is specifically in order to create an ArchivePlotCurveItem
-        # without changing axes or appending to the row.
-        ArchiveCurve = ArchivePlotCurveItem(**kwargs)
-        [ch.disconnect() for ch in ArchiveCurve.channels() if ch]
-        ArchiveCurve.address = address
-        [ch.connect() for ch in ArchiveCurve.channels() if ch]
-        return ArchiveCurve
 
     def addFormulaChannel(self, yAxisName: str, **kwargs) -> FormulaCurveItem:
         # Create a formula curve to replace the archive plot curve item in place.
