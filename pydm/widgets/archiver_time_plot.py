@@ -516,7 +516,7 @@ class FormulaCurveItem(BasePlotCurveItem):
             pvValues[minPV] = pvData[minPV][1][min_pv_current_index]
             try:
                 temp = np.array([[current_time], [eval(formula)]])
-            except ValueError:
+            except (ValueError, SyntaxError):
                 logger.warning("Evaluate failed (domain errors? unknown function?)")
                 temp = np.array([[current_time], [0]])
             output = np.append(output, temp, axis=1)
@@ -534,8 +534,12 @@ class FormulaCurveItem(BasePlotCurveItem):
         if not self.pvs:
             # If we are just a constant, then forget about data
             # just draw a straight line from 1970 to 300 years or so in the future
-            y = [eval(self._trueFormula), eval(self._trueFormula)]
-            x = [0, APPROX_SECONDS_300_YEARS]
+            try:
+                y = [eval(self._trueFormula), eval(self._trueFormula)]
+                x = [0, APPROX_SECONDS_300_YEARS]
+            except (ValueError, SyntaxError):
+                logger.warning("Evaluate failed. This formula has no captured PVs but is invalid")
+                return
             # There is a known bug that this won't graph a constant with an x axis
             # of between 30 minutes and 1hr 30 minutes in range. Unknown reason
             self.setData(y=y, x=x)
