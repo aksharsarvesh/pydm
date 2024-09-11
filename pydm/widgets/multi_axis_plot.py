@@ -40,6 +40,7 @@ class MultiAxisPlot(PlotItem):
         # Signals that will be emitted when mouse wheel or mouse drag events happen
         self.vb.sigMouseDragged.connect(self.handleMouseDragEvent)
         self.vb.sigMouseWheelZoomed.connect(self.handleWheelEvent)
+        self.vb.zoomSignal.connect(self.zoomEvent)
         self.vb.setZValue(100)  # Keep this view box on top
         if self.vb.menuEnabled():
             self.connectMenuSignals(self.vb.menu)
@@ -134,6 +135,7 @@ class MultiAxisPlot(PlotItem):
         # to the event handling code of the stacked views
         view.sigMouseDragged.connect(self.handleMouseDragEvent)
         view.sigMouseWheelZoomed.connect(self.handleWheelEvent)
+        view.zoomSignal.connect(self.zoomEvent)
         self.vb.sigHistoryChanged.connect(view.scaleHistory)
 
     def connectMenuSignals(self, view_box_menu: MultiAxisViewBoxMenu) -> None:
@@ -529,6 +531,18 @@ class MultiAxisPlot(PlotItem):
             elif axis.orientation in ("top", "bottom"):
                 axis.setGrid(x)
 
+    def zoomEvent(self, view, scale, center, axis):
+        print("zoomeventcalled")
+        for stackedView in self.stackedViews:
+            if stackedView is not view:
+                if axis in (0, 1):
+                    mask = [False, False]
+                    mask[axis] = stackedView.state['mouseEnabled'][axis]
+                else:
+                    mask = stackedView.state['mouseEnabled'][:]
+                s = [(None if m is False else scale) for m in mask]
+                stackedView.scaleBy(s, center)
+
     def handleWheelEvent(self, view, ev, axis):
         """
         A simple slot for propagating a mouse wheel event to all the stacked view boxes (except for the one
@@ -543,6 +557,7 @@ class MultiAxisPlot(PlotItem):
             The axis (or None) that the event happened on
         """
         for stackedView in self.stackedViews:
+            print(stackedView)
             if stackedView is not view:
                 stackedView.wheelEvent(ev, axis, fromSignal=True)
 
