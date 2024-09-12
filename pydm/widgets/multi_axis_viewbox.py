@@ -7,7 +7,7 @@ class MultiAxisViewBox(ViewBox):
     MultiAxisViewBox is a PyQtGraph ViewBox subclass that has support for adding multiple y axes for
     PyDM's use cases. Each unique axis will be assigned its own MultiAxisViewBox for managing its
     range and associated curves. Any events handled by the any view box will be propagated through
-    to all views in the stack to ensure that the plot remains consistent with user input.
+    to all views in the stack to ensure that the plot semains consistent with user input.
     """
 
     # These signals will be emitted by the view when it handles these events, and will be connected
@@ -16,7 +16,7 @@ class MultiAxisViewBox(ViewBox):
     sigMouseDraggedDone = Signal()
     sigMouseWheelZoomed = Signal(object, object, object)
     sigHistoryChanged = Signal(object)
-    zoomSignal = Signal(object, float, object, object)
+    undoSignal = Signal(bool)
 
     def __init__(self, **kwargs):
         self.undoStack = []
@@ -45,22 +45,24 @@ class MultiAxisViewBox(ViewBox):
             True if this event was generated from a signal rather than a user event. Used to ensure we only propagate
             the even once.
         """
-        if axis != ViewBox.YAxis and not fromSignal:
-            # This event happened within the view box area itself or the x axis so propagate to any stacked view boxes
-            self.sigMouseWheelZoomed.emit(self, ev, axis)
-        center = Point(functions.invertQTransform(self.childGroup.transform()).map(ev.pos()))
-        factor = 1 / (1.02 ** (ev.delta() * self.state['wheelScaleFactor']))
-        self.redoStack = []
-        if self.undoStack:
-            prev = self.undoStack.pop()
-            if prev[1] == center and prev[2] == axis:
-                factor *= prev[0]
-                self.undoStack.append((factor, center, axis))
+        if axis != ViewBox.YAxis:
+            if not fromSignal:
+                # This event happened within the view box area itself or the x axis so propagate to any stacked view boxes
+                self.sigMouseWheelZoomed.emit(self, ev, axis)
+            # Only store events within the viewbox area
+            center = Point(functions.invertQTransform(self.childGroup.transform()).map(ev.pos()))
+            factor = 1 / (1.02 ** (ev.delta() * self.state['wheelScaleFactor']))
+            self.redoStack = []
+            if self.undoStack:
+                prev = self.undoStack.pop()
+                if prev[1] == center and prev[2] == axis:
+                    factor *= prev[0]
+                    self.undoStack.append((factor, center, axis))
+                else:
+                    self.undoStack.append(prev)
+                    self.undoStack.append((factor, center, axis))
             else:
-                self.undoStack.append(prev)
                 self.undoStack.append((factor, center, axis))
-        else:
-            self.undoStack.append((factor, center, axis))
         super(MultiAxisViewBox, self).wheelEvent(ev, axis)
 
     def mouseDragEvent(self, ev, axis=None, fromSignal=False):
@@ -100,28 +102,15 @@ class MultiAxisViewBox(ViewBox):
 
         ev.accept()
         if ev.text() == "-":
-            self.undo()
+            if self.undoStack:
+                self.undoSignal.emit(True)
         elif ev.text() in ["+", "="]:
-            self.scaleHistory(1)
+            if self.redoStack:
+                self.undoSignal.emit(False)
         elif ev.key() == Qt.Key.Key_Backspace:
             self.scaleHistory(0)
         else:
             ev.ignore()
-
-    def undo(self):
-        if self.undoStack:
-
-            scale, center, axis = self.undoStack.pop()
-            mask = [True, True]
-            s = [(None if m is False else scale) for m in mask]
-            self._resetTarget()
-            print(mask)
-            print(s)
-            self.zoomSignal.emit(self, scale, center, axis)
-            self.scaleBy(s, center)
-            self.sigRangeChangedManually.emit(mask)
-            redoScale = 1 / scale
-            self.redoStack.append((redoScale, center, axis))
 
     def scaleHistory(self, d):
         """
